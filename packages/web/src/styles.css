@@ -44,10 +44,12 @@ body,
   background: var(--canvas-bg);
   cursor: crosshair;
   touch-action: none;
+  z-index: 0;
 }
 
 .toolbar {
   position: absolute;
+  z-index: 1;
   top: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
@@ -112,6 +114,7 @@ button:focus-visible {
 
 .badge {
   position: absolute;
+  z-index: 1;
   top: var(--space-3);
   right: var(--space-3);
   padding: 4px 10px;
@@ -137,6 +140,7 @@ button:focus-visible {
 
 .presence {
   position: absolute;
+  z-index: 1;
   left: var(--space-3);
   bottom: var(--space-3);
   max-width: 240px;
