@@ -134,3 +134,38 @@ button:focus-visible {
 .badge-offline {
   background: #fca5a5;
 }
+
+.presence {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  max-width: 240px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--toolbar-bg);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.25);
+  font-size: 13px;
+}
+
+.presence ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.presence li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.presence-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}

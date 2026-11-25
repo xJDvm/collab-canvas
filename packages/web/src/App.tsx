@@ -6,7 +6,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Point, Shape } from "@collab-canvas/crdt";
-import { Connection, roomFromHash, type ConnectionStatus } from "./net.js";
+import { colourFor, sessionName } from "./identity.js";
+import { Connection, roomFromHash, statusKind, type ConnectionView } from "./net.js";
+import type { Cursor } from "./render.js";
 import { draw, fitCanvas } from "./render.js";
 import { PALETTE, Tools, type Colour, type ToolId } from "./tools.js";
 
@@ -26,6 +28,15 @@ const TOOL_BUTTONS: readonly { readonly id: ToolId; readonly label: string }[] =
 
 const PRIMARY_BUTTON = 0;
 
+/** The view shown before the first connection event. */
+const INITIAL_VIEW: ConnectionView = { status: "connecting", shapes: [], cursors: [] };
+
+/** The display name and colour of this tab. The name is kept for the session. */
+function localIdentity(): { readonly name: string; readonly colour: string } {
+  const name = sessionName(() => window.sessionStorage);
+  return { name, colour: colourFor(name) };
+}
+
 /** WebSocket endpoint on the page's own origin; the dev server proxies `/ws`. */
 function socketUrl(): string {
   const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -44,34 +55,69 @@ function pointOn(canvas: HTMLCanvasElement, event: ReactPointerEvent<HTMLCanvasE
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-/** The whiteboard: toolbar, connection badge and a canvas that fills the viewport. */
+/** The people on the canvas: this tab first, then every peer whose cursor is live. */
+function PresenceList({
+  name,
+  colour,
+  cursors,
+}: {
+  readonly name: string;
+  readonly colour: string;
+  readonly cursors: readonly Cursor[];
+}) {
+  return (
+    <aside className="presence" aria-label="People on this canvas" data-testid="presence-list">
+      <ul>
+        <li>
+          <span className="presence-dot" style={{ backgroundColor: colour }} aria-hidden="true" />
+          <span>{name} (you)</span>
+        </li>
+        {cursors.map((cursor) => (
+          <li key={cursor.replica}>
+            <span
+              className="presence-dot"
+              style={{ backgroundColor: cursor.color }}
+              aria-hidden="true"
+            />
+            <span>{cursor.name}</span>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
+
+/** The whiteboard: toolbar, connection badge, presence list and a full-viewport canvas. */
 export function App() {
   const [room] = useState(() => roomFromHash(window.location.hash));
-  const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [shapes, setShapes] = useState<readonly Shape[]>([]);
+  const [identity] = useState(localIdentity);
+  const [view, setView] = useState<ConnectionView>(INITIAL_VIEW);
+  const { shapes } = view;
   const [tool, setTool] = useState<ToolId>("rect");
   const [colour, setColour] = useState<Colour>(PALETTE[0]);
   const [, refresh] = useReducer((revision: number) => revision + 1, 0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const toolsRef = useRef<Tools | null>(null);
+  const connectionRef = useRef<Connection | null>(null);
 
   useEffect(() => {
     const connection = new Connection({
       url: socketUrl(),
       room,
       replica: newReplicaId(),
-      onChange: (next, list) => {
-        setStatus(next);
-        setShapes(list);
-      },
+      name: identity.name,
+      colour: identity.colour,
+      onChange: setView,
     });
+    connectionRef.current = connection;
     toolsRef.current = new Tools(connection);
     connection.start();
     return () => {
       connection.close();
+      connectionRef.current = null;
       toolsRef.current = null;
     };
-  }, [room]);
+  }, [room, identity]);
 
   useEffect(() => {
     window.addEventListener("resize", refresh);
@@ -116,7 +162,7 @@ export function App() {
     }
     const { width, height } = canvas.getBoundingClientRect();
     fitCanvas(ctx, width, height, window.devicePixelRatio);
-    draw(ctx, tools.displayShapes(shapes), tools.selection, []);
+    draw(ctx, tools.displayShapes(shapes), tools.selection, view.cursors);
   });
 
   const chooseTool = (next: ToolId): void => {
@@ -147,7 +193,9 @@ export function App() {
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    toolsRef.current?.pointerMove(pointOn(event.currentTarget, event));
+    const point = pointOn(event.currentTarget, event);
+    toolsRef.current?.pointerMove(point);
+    connectionRef.current?.updatePresence(point);
     refresh();
   };
 
@@ -201,13 +249,14 @@ export function App() {
         </div>
       </header>
       <span
-        className={`badge badge-${status}`}
+        className={`badge badge-${statusKind(view.status)}`}
         data-testid="connection-status"
-        data-status={status}
+        data-status={statusKind(view.status)}
         role="status"
       >
-        {status}
+        {view.status}
       </span>
+      <PresenceList name={identity.name} colour={identity.colour} cursors={view.cursors} />
       <canvas
         ref={canvasRef}
         className="canvas"
