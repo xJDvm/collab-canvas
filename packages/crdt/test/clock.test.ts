@@ -14,7 +14,9 @@ describe("compareStamps", () => {
   it("is antisymmetric", () => {
     fc.assert(
       fc.property(stampArb, stampArb, (a, b) => {
-        expect(compareStamps(a, b)).toBe(-compareStamps(b, a));
+        const forward = Math.sign(compareStamps(a, b));
+        const backward = Math.sign(compareStamps(b, a));
+        expect(forward + backward).toBe(0);
       }),
     );
   });
