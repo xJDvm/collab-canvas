@@ -17,7 +17,7 @@
   "scripts": {
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "npm run test --workspaces --if-present",
+    "test": "tsc -b && npm run test --workspaces --if-present",
     "dev": "echo \"dev: server and web are not wired yet (planned: concurrently).\"",
     "e2e": "echo \"e2e: Playwright is not set up yet.\""
   },
