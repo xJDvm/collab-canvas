@@ -15,7 +15,21 @@ const REPLICA_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const COLOUR_PATTERN = /^#[0-9a-f]{6}$/;
 
 /** Codes carried by an {@link ErrorFrame}. */
-export type ErrorCode = "invalid_frame";
+export type ErrorCode =
+  | "invalid_frame"
+  | "hello_required"
+  | "rate_limited"
+  | "room_full"
+  | "replica_in_use";
+
+/** Fixed, client-safe message for each error code. No internal detail is ever included. */
+const ERROR_MESSAGES: Readonly<Record<ErrorCode, string>> = {
+  invalid_frame: "invalid frame",
+  hello_required: "the first frame must be hello",
+  rate_limited: "too many operations, slow down",
+  room_full: "the room is full",
+  replica_in_use: "this replica id is already in the room",
+};
 
 /** Client joins a room. */
 export interface HelloFrame {
@@ -186,7 +200,12 @@ export function encodeServerFrame(frame: ServerFrame): string {
   }
 }
 
+/** Builds the error frame for `code` with its fixed message. */
+export function errorFrame(code: ErrorCode): ErrorFrame {
+  return { type: "error", code, message: ERROR_MESSAGES[code] };
+}
+
 /** The error sent in reply to a frame that failed {@link parseClientFrame}. */
 export function invalidFrameError(): ErrorFrame {
-  return { type: "error", code: "invalid_frame", message: "invalid frame" };
+  return errorFrame("invalid_frame");
 }
