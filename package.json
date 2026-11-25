@@ -19,10 +19,11 @@
     "lint": "eslint .",
     "test": "tsc -b && npm run test --workspaces --if-present",
     "dev": "tsc -b && concurrently -k -n server,web \"npm run dev -w @collab-canvas/server\" \"npm run dev -w @collab-canvas/web\"",
-    "e2e": "echo \"e2e: Playwright is not set up yet.\""
+    "e2e": "playwright test --trace off"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "22.20.5",
     "concurrently": "10.0.7",
     "eslint": "10.14.0",
