@@ -59,12 +59,24 @@ describe("Store: operation log", () => {
     expect(store.load("demo").ops).toEqual([op]);
   });
 
-  it("treats an op id seen in another room as a duplicate", () => {
+  it("stores the same op id in two different rooms", () => {
     const [op] = makeOps("alice", 1);
     if (op === undefined) throw new Error("fixture missing");
     expect(store.appendOp("room-a", op)).toBe(true);
-    expect(store.appendOp("room-b", op)).toBe(false);
-    expect(store.load("room-b").ops).toEqual([]);
+    expect(store.appendOp("room-b", op)).toBe(true);
+    expect(store.lastSeq("room-a")).toBe(1);
+    expect(store.lastSeq("room-b")).toBe(1);
+    expect(store.load("room-a").ops).toEqual([op]);
+    expect(store.load("room-b").ops).toEqual([op]);
+  });
+
+  it("lets a pre-registered id in one room not block the same id in another", () => {
+    const [op] = makeOps("mallory", 1);
+    if (op === undefined) throw new Error("fixture missing");
+    expect(store.appendOp("room-b", op)).toBe(true);
+    expect(store.appendOp("room-a", op)).toBe(true);
+    expect(store.appendOp("room-a", op)).toBe(false);
+    expect(store.load("room-a").ops).toEqual([op]);
   });
 
   it("assigns seq monotonically per room and independently across rooms", () => {
@@ -141,7 +153,7 @@ describe("Store: operation log", () => {
     }
   });
 
-  it("property: accepted ops keep dense per-room order and reject duplicates", () => {
+  it("property: accepted ops keep dense per-room order and reject duplicates within a room", () => {
     const rooms = ["alpha", "beta", "it's \"quoted\""];
     const pool = makeOps("prop", 8);
     fc.assert(
@@ -156,15 +168,16 @@ describe("Store: operation log", () => {
         (steps) => {
           const local = new Store(":memory:");
           try {
-            const seen = new Set<string>();
+            const seen = new Map<string, Set<string>>(rooms.map((room) => [room, new Set()]));
             const expected = new Map<string, Op[]>(rooms.map((room) => [room, []]));
             for (const [roomIndex, opIndex] of steps) {
               const room = rooms[roomIndex] as string;
               const op = pool[opIndex] as Op;
+              const roomSeen = seen.get(room) as Set<string>;
               const accepted = local.appendOp(room, op);
-              expect(accepted).toBe(!seen.has(op.id));
+              expect(accepted).toBe(!roomSeen.has(op.id));
               if (accepted) {
-                seen.add(op.id);
+                roomSeen.add(op.id);
                 expected.get(room)?.push(op);
               }
             }

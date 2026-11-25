@@ -17,6 +17,13 @@ export interface RoomMember {
 export type JoinResult = "joined" | "full" | "duplicate";
 
 /**
+ * Outcome of {@link Room.submitOp}: `"accepted"` when the op was persisted, applied and
+ * broadcast; `"duplicate"` when its id is already recorded in the room; `"invalid"` when
+ * it was recorded but the document refused to apply it.
+ */
+export type SubmitResult = "accepted" | "duplicate" | "invalid";
+
+/**
  * One collaborative room: an in-memory replica of its document and the members
  * connected to it. The server only relays and records; it never authors operations.
  *
@@ -50,7 +57,12 @@ export class Room {
         ? new Doc(SERVER_REPLICA)
         : Doc.fromSnapshot(SERVER_REPLICA, JSON.parse(loaded.snapshot.json) as DocSnapshot);
     for (const op of loaded.ops) {
-      doc.apply(op);
+      try {
+        doc.apply(op);
+      } catch {
+        // An op the document refuses was never applied by submitOp either. Skipping it
+        // keeps one bad row from making the room unjoinable for good.
+      }
     }
     return new Room(name, doc, store, maxMembers);
   }
@@ -88,21 +100,28 @@ export class Room {
   /**
    * Accepts an operation from the member `replica`: persists it, applies it, and
    * broadcasts it to every other member. Snapshots are written at the store's
-   * interval. An operation already recorded, in this room or another one, is dropped
-   * without a broadcast.
+   * interval.
+   *
+   * The op is persisted before it is applied, because the store decides whether it is
+   * a duplicate. If the document refuses it, the row stays in the log, is never
+   * broadcast, and {@link Room.load} skips it on every later load, so memory and log
+   * agree. Nothing is broadcast and the caller gets `"invalid"`; the room is not affected.
    */
-  submitOp(replica: string, op: Op): void {
-    // The store's unique op id also rejects an op recorded in another room. Appending
-    // first means such an op is never applied here without being persisted.
+  submitOp(replica: string, op: Op): SubmitResult {
     if (!this.#store.appendOp(this.name, op)) {
-      return;
+      return "duplicate";
     }
-    this.#doc.apply(op);
+    try {
+      this.#doc.apply(op);
+    } catch {
+      return "invalid";
+    }
     const seq = this.#store.lastSeq(this.name);
     if (this.#store.shouldSnapshot(seq)) {
       this.#store.saveSnapshot(this.name, seq, JSON.stringify(this.#doc.snapshot()));
     }
     this.#broadcast(encodeServerFrame({ type: "op", op }), replica);
+    return "accepted";
   }
 
   /** Relays a cursor update to every member except `replica`, tagged with its sender. */

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createConnection } from "node:net";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import { once } from "node:events";
@@ -184,6 +185,55 @@ describe("createServer", () => {
     a.peer.sendRaw(paddedPresence(MAX_FRAME_BYTES));
     const relayed = frameOf(await b.peer.next(), "presence");
     expect(relayed.replica).toBe("replica-a");
+  });
+
+  it("keeps a joined client open past the hello timeout and applies its ops", async () => {
+    const helloTimeoutMs = 150;
+    const port = await start({ helloTimeoutMs });
+    const a = await joinTracked(port, "demo", "replica-a");
+    const b = await joinTracked(port, "demo", "replica-b");
+    await sleep(3 * helloTimeoutMs);
+    expect(a.peer.socket.readyState).toBe(a.peer.socket.OPEN);
+    expect(b.peer.socket.readyState).toBe(b.peer.socket.OPEN);
+
+    const op = makeOp("replica-a");
+    a.peer.send({ type: "op", op });
+    expect(frameOf(await b.peer.next(), "op").op).toEqual(op);
+    const late = await joinTracked(port, "demo", "replica-c");
+    expect(frameOf(late.welcome, "welcome").snapshot.shapes.map((shape) => shape.id)).toEqual([
+      op.id,
+    ]);
+  });
+
+  it("joins a room whose stored log holds an unsafe-lamport row", async () => {
+    const dir = mkdtempSync(joinPath(tmpdir(), "collab-canvas-unsafe-"));
+    const file = joinPath(dir, "rooms.db");
+    try {
+      const first = new Store(file);
+      const good = makeOp("replica-a");
+      first.appendOp("demo", good);
+      first.close();
+
+      const raw = new DatabaseSync(file);
+      try {
+        const bad = makeOp("replica-b");
+        const unsafe = { ...bad, stamp: { lamport: Number.MAX_SAFE_INTEGER + 1, replica: "replica-b" } };
+        raw
+          .prepare("INSERT INTO ops (room, seq, id, json) VALUES (?, ?, ?, ?)")
+          .run("demo", 2, bad.id, JSON.stringify(unsafe));
+      } finally {
+        raw.close();
+      }
+
+      store.close();
+      store = new Store(file);
+      server = await createServer({ config: testConfig(), store });
+      const c = await joinTracked(server.port, "demo", "replica-c");
+      const welcome = frameOf(c.welcome, "welcome");
+      expect(welcome.snapshot.shapes.map((shape) => shape.id)).toEqual([good.id]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("closes a connection that does not send hello in time", async () => {

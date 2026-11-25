@@ -121,6 +121,12 @@ class Session {
     }
   }
 
+  /** Records the room membership and cancels the hello timer, which only guards the first frame. */
+  admit(membership: Membership): void {
+    this.joined = membership;
+    clearTimeout(this.#helloTimer);
+  }
+
   /** Cancels the hello timer and marks the session as closing. */
   dispose(): void {
     this.closing = true;
@@ -250,7 +256,7 @@ class Hub {
     };
     const result = room.join(member);
     if (result === "joined") {
-      session.joined = { room, member };
+      session.admit({ room, member });
     } else if (result === "duplicate") {
       session.send(errorFrame("replica_in_use"));
       session.close(CLOSE_POLICY, "replica in use");
@@ -266,10 +272,10 @@ class Hub {
       return;
     }
     if (frame.type === "op") {
-      if (session.ops.tryTake(performance.now())) {
-        joined.room.submitOp(joined.member.replica, frame.op);
-      } else {
+      if (!session.ops.tryTake(performance.now())) {
         session.send(errorFrame("rate_limited"));
+      } else if (joined.room.submitOp(joined.member.replica, frame.op) === "invalid") {
+        session.send(errorFrame("invalid_op"));
       }
       return;
     }

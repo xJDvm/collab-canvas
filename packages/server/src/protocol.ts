@@ -17,6 +17,7 @@ const COLOUR_PATTERN = /^#[0-9a-f]{6}$/;
 /** Codes carried by an {@link ErrorFrame}. */
 export type ErrorCode =
   | "invalid_frame"
+  | "invalid_op"
   | "hello_required"
   | "rate_limited"
   | "room_full"
@@ -25,6 +26,7 @@ export type ErrorCode =
 /** Fixed, client-safe message for each error code. No internal detail is ever included. */
 const ERROR_MESSAGES: Readonly<Record<ErrorCode, string>> = {
   invalid_frame: "invalid frame",
+  invalid_op: "the operation cannot be applied",
   hello_required: "the first frame must be hello",
   rate_limited: "too many operations, slow down",
   room_full: "the room is full",

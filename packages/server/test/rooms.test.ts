@@ -276,7 +276,7 @@ describe("Room", () => {
     expect(welcome.snapshot).toEqual(expected.snapshot());
   });
 
-  it("neither persists nor broadcasts an op already recorded in another room", () => {
+  it("persists and broadcasts an op id that is already recorded in another room", () => {
     const store = new Store(":memory:");
     const source = Room.load("source", store, 50);
     const target = Room.load("target", store, 50);
@@ -289,11 +289,54 @@ describe("Room", () => {
 
     const [op] = makeOps("alice", 1);
     if (op === undefined) throw new Error("fixture missing");
-    source.submitOp("alice", op);
-    target.submitOp("alice", op);
+    expect(source.submitOp("alice", op)).toBe("accepted");
+    expect(target.submitOp("alice", op)).toBe("accepted");
 
-    expect(bob.takeOps()).toEqual([]);
-    expect(store.load("target").ops).toEqual([]);
+    expect(bob.takeOps()).toEqual([op]);
+    expect(store.load("target").ops).toEqual([op]);
+  });
+
+  it("reports a duplicate op id in the same room without broadcasting it again", () => {
+    const room = Room.load("demo", new Store(":memory:"), 50);
+    const alice = new Recorder("alice");
+    const bob = new Recorder("bob");
+    room.join(alice);
+    room.join(bob);
+    bob.frames.length = 0;
+
+    const [op] = makeOps("alice", 1);
+    if (op === undefined) throw new Error("fixture missing");
+    expect(room.submitOp("alice", op)).toBe("accepted");
+    expect(room.submitOp("alice", op)).toBe("duplicate");
+    expect(bob.takeOps()).toEqual([op]);
+  });
+
+  it("refuses an op the document cannot apply without broadcasting it or failing the room", () => {
+    const store = new Store(":memory:");
+    const room = Room.load("demo", store, 50);
+    const alice = new Recorder("alice");
+    const bob = new Recorder("bob");
+    room.join(alice);
+    room.join(bob);
+    bob.frames.length = 0;
+
+    const [good, bad, after] = makeOps("alice", 3);
+    if (good === undefined || bad === undefined || after === undefined) {
+      throw new Error("fixture missing");
+    }
+    const unsafe = { ...bad, stamp: { lamport: Number.MAX_SAFE_INTEGER + 1, replica: "alice" } } as Op;
+
+    expect(room.submitOp("alice", good)).toBe("accepted");
+    expect(room.submitOp("alice", unsafe)).toBe("invalid");
+    expect(bob.takeOps()).toEqual([good]);
+    expect(room.submitOp("alice", after)).toBe("accepted");
+    expect(bob.takeOps()).toEqual([after]);
+
+    const reloaded = Room.load("demo", store, 50);
+    const checker = new Recorder("checker");
+    reloaded.join(checker);
+    const welcome = checker.frames[0] as Extract<ServerFrame, { type: "welcome" }>;
+    expect(welcome.snapshot.shapes.map((shape) => shape.id)).toEqual([good.id, after.id]);
   });
 
   it("rejects a duplicate replica without sending anything", () => {

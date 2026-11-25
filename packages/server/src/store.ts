@@ -29,9 +29,10 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS ops (
     room TEXT NOT NULL,
     seq INTEGER NOT NULL,
-    id TEXT NOT NULL UNIQUE,
+    id TEXT NOT NULL,
     json TEXT NOT NULL,
-    PRIMARY KEY (room, seq)
+    PRIMARY KEY (room, seq),
+    UNIQUE (room, id)
   );
   CREATE TABLE IF NOT EXISTS snapshots (
     room TEXT NOT NULL,
@@ -73,7 +74,8 @@ export class Store {
       }
       this.#db.exec(SCHEMA);
       // The sequence is assigned inside the INSERT itself, so the read and the write
-      // are one atomic statement. A duplicate op id is ignored and reported as 0 changes.
+      // are one atomic statement. An op id already stored in this room is ignored and
+      // reported as 0 changes. The same id in another room is stored independently.
       this.#insertOp = this.#db.prepare(
         "INSERT OR IGNORE INTO ops (room, seq, id, json) " +
           "SELECT ?1, COALESCE(MAX(seq), 0) + 1, ?2, ?3 FROM ops WHERE room = ?1",
@@ -94,7 +96,8 @@ export class Store {
 
   /**
    * Appends `op` to `room` with the next sequence number.
-   * @returns `false` if an operation with the same id is already stored (nothing changes).
+   * @returns `false` if an operation with the same id is already stored in `room`
+   *   (nothing changes). The same id in another room is not a duplicate.
    */
   appendOp(room: string, op: Op): boolean {
     const result = this.#insertOp.run(room, op.id, JSON.stringify(op));
