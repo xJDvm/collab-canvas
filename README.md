@@ -45,9 +45,9 @@ npm ci
 npm run dev
 ```
 
-Then open http://localhost:5173/#room=demo in two browser tabs and draw in one of them.
+Then open http://127.0.0.1:5173/#room=demo in two browser tabs and draw in one of them.
 
-`npm run dev` runs `tsc -b`, then starts the WebSocket server and the Vite client. The Vite dev server does not set a `host`, so it serves on `localhost:5173`. The server binds `HOST` and `PORT` (default `127.0.0.1:8787`). Vite proxies `/ws` to `ws://127.0.0.1:8787` (set in `packages/web/vite.config.ts`), so the browser only talks to the Vite origin.
+`npm run dev` runs `tsc -b`, then starts the WebSocket server and the Vite client. The Vite dev server binds `127.0.0.1:5173` (loopback only, `strictPort`), so it fails instead of picking another port if 5173 is busy. The server binds `HOST` and `PORT` (default `127.0.0.1:8787`). Vite proxies `/ws` to `ws://127.0.0.1:8787` (set in `packages/web/vite.config.ts`), so the browser only talks to the Vite origin.
 
 The server reads three environment variables, all optional: `HOST` (default `127.0.0.1`), `PORT` (default `8787`) and `DB_PATH` (default `./collab-canvas.db`). The Vite proxy target is not derived from them; if you change `HOST` or `PORT`, change `vite.config.ts` as well.
 
@@ -92,7 +92,7 @@ After a valid `hello`, the server replies with `welcome`. Its `snapshot` field i
 | `npm run typecheck` | Type-checks every package with `tsc -b`. |
 | `npm run lint` | Runs `eslint .` over the repository. |
 | `npm test` | Type-checks, then runs the Vitest suites of `crdt`, `server` and `web`. |
-| `npm run dev` | Type-checks, then starts the WebSocket server (`127.0.0.1:8787` by default) and the Vite client (`localhost:5173`). |
+| `npm run dev` | Type-checks, then starts the WebSocket server (`127.0.0.1:8787` by default) and the Vite client (`127.0.0.1:5173`). |
 | `npm run e2e` | Runs the Playwright suite in Chromium. Browsers must be installed first with `npx playwright install chromium`. |
 | `npm run build -w @collab-canvas/web` | Builds the client into `packages/web/dist/app`. This is a workspace script; the root `package.json` has no `build` script. |
 

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -117,8 +118,9 @@ function presenceEntries(page: Page): Locator {
 }
 
 test("two users in one room, captured for the README", async ({ browser }) => {
-  const alice = await openPeer(browser, "demo-screenshot", ALICE);
-  const bob = await openPeer(browser, "demo-screenshot", BOB);
+  const room = `e2e-${randomBytes(6).toString("hex")}`;
+  const alice = await openPeer(browser, room, ALICE);
+  const bob = await openPeer(browser, room, BOB);
   try {
     const a = alice.page;
     const b = bob.page;
