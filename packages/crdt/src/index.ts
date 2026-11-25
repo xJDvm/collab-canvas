@@ -1,5 +1,6 @@
 export { Clock, compareStamps, type Stamp } from "./clock.js";
 export { Doc } from "./doc.js";
+export { validateOp } from "./validate.js";
 export {
   type BoxGeometry,
   type CreateOp,
