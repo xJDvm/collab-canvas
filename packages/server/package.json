@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsc -b && node dist/src/main.js",
     "start": "node dist/src/main.js",
     "test": "vitest run"
   },

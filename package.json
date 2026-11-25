@@ -18,12 +18,13 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "tsc -b && npm run test --workspaces --if-present",
-    "dev": "echo \"dev: server and web are not wired yet (planned: concurrently).\"",
+    "dev": "tsc -b && concurrently -k -n server,web \"npm run dev -w @collab-canvas/server\" \"npm run dev -w @collab-canvas/web\"",
     "e2e": "echo \"e2e: Playwright is not set up yet.\""
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
+    "concurrently": "10.0.7",
     "eslint": "10.14.0",
     "fast-check": "4.10.2",
     "typescript": "6.0.3",

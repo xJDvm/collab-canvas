@@ -1,0 +1,136 @@
+:root {
+  --toolbar-bg: #0f172a;
+  --toolbar-hover: #1e293b;
+  --toolbar-active: #334155;
+  --toolbar-text: #e2e8f0;
+  --toolbar-muted: #94a3b8;
+  --focus-ring: #38bdf8;
+  --canvas-bg: #f1f5f9;
+  --radius: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--toolbar-text);
+  background: var(--canvas-bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--canvas-bg);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.toolbar {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--toolbar-bg);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.25);
+  user-select: none;
+}
+
+.tool-group,
+.palette {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.palette {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--toolbar-hover);
+}
+
+.tool-button {
+  font: inherit;
+  font-size: 14px;
+  color: var(--toolbar-text);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.tool-button:hover {
+  background: var(--toolbar-hover);
+}
+
+.tool-button[aria-pressed="true"] {
+  background: var(--toolbar-active);
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--toolbar-text);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.badge {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: #0f172a;
+}
+
+.badge-connecting {
+  background: #fde68a;
+}
+
+.badge-online {
+  background: #86efac;
+}
+
+.badge-offline {
+  background: #fca5a5;
+}
